@@ -2,12 +2,24 @@ package theme
 
 import (
 	"image/color"
+	"supersonic/res"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 )
 
 const ColorNamePageBackground fyne.ThemeColorName = "PageBackground"
+
+const (
+	IconNameNowPlaying  fyne.ThemeIconName = "NowPlaying"
+	IconNameFavorite    fyne.ThemeIconName = "Favorite"
+	IconNameNotFavorite fyne.ThemeIconName = "NotFavorite"
+	IconNameAlbum       fyne.ThemeIconName = "Album"
+	IconNameArtist      fyne.ThemeIconName = "Artist"
+	IconNameGenre       fyne.ThemeIconName = "Genre"
+	IconNamePlaylist    fyne.ThemeIconName = "Playlist"
+	IconNameShuffle     fyne.ThemeIconName = "Shuffle"
+)
 
 type MyTheme struct{}
 
@@ -30,7 +42,26 @@ func (m MyTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) colo
 }
 
 func (m MyTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
-	return theme.DefaultTheme().Icon(name)
+	switch name {
+	case IconNameAlbum:
+		return res.ResDiscInvertPng
+	case IconNameArtist:
+		return res.ResPeopleInvertPng
+	case IconNameFavorite:
+		return res.ResHeartFilledInvertPng
+	case IconNameNotFavorite:
+		return res.ResHeartOutlineInvertPng
+	case IconNameGenre:
+		return res.ResTheatermasksInvertPng
+	case IconNameNowPlaying:
+		return res.ResHeadphonesInvertPng
+	case IconNamePlaylist:
+		return res.ResPlaylistInvertPng
+	case IconNameShuffle:
+		return res.ResShuffleInvertSvg
+	default:
+		return theme.DefaultTheme().Icon(name)
+	}
 }
 
 func (m MyTheme) Font(style fyne.TextStyle) fyne.Resource {
