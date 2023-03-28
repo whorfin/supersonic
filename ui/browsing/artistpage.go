@@ -8,6 +8,7 @@ import (
 	"supersonic/sharedutil"
 	"supersonic/ui/controller"
 	"supersonic/ui/layouts"
+	myTheme "supersonic/ui/theme"
 	"supersonic/ui/util"
 	"supersonic/ui/widgets"
 
@@ -238,7 +239,7 @@ type ArtistPageHeader struct {
 	similarArtists *fyne.Container
 	favoriteBtn    *widgets.FavoriteButton
 	playBtn        *widget.Button
-	playRadioBtn   *widget.Button
+	playRadioBtn   *widgets.ThemedIconButton
 	container      *fyne.Container
 }
 
@@ -255,7 +256,7 @@ func NewArtistPageHeader(page *ArtistPage) *ArtistPageHeader {
 	a.artistImage = widgets.NewImagePlaceholder(res.ResPeopleInvertPng, 225)
 	a.favoriteBtn = widgets.NewFavoriteButton(func() { go a.toggleFavorited() })
 	a.playBtn = widget.NewButtonWithIcon("Play Discography", theme.MediaPlayIcon(), page.playAllTracks)
-	a.playRadioBtn = widget.NewButtonWithIcon("Play Artist Radio", res.ResShuffleInvertSvg, page.playArtistRadio)
+	a.playRadioBtn = widgets.NewThemedIconButton(myTheme.IconNameShuffle, " Play Artist Radio", page.playArtistRadio)
 	a.biographyDisp.Wrapping = fyne.TextWrapWord
 	a.ExtendBaseWidget(a)
 	a.createContainer()

@@ -4,10 +4,10 @@ import (
 	"log"
 	"runtime"
 	"strconv"
-	"supersonic/res"
 	"supersonic/sharedutil"
 	"supersonic/ui/layouts"
 	"supersonic/ui/os"
+	myTheme "supersonic/ui/theme"
 	"supersonic/ui/util"
 	"time"
 
@@ -394,7 +394,7 @@ func NewTrackRow(tracklist *Tracklist, playingIcon fyne.CanvasObject) *TrackRow 
 	t.dur.Segments[0].(*widget.TextSegment).Style.Alignment = fyne.TextAlignTrailing
 	t.year = widget.NewRichTextWithText("")
 	t.year.Segments[0].(*widget.TextSegment).Style.Alignment = fyne.TextAlignTrailing
-	favorite := NewTappbaleIcon(res.ResHeartOutlineInvertPng)
+	favorite := NewThemedTappableIcon(myTheme.IconNameNotFavorite)
 	favorite.OnTapped = t.toggleFavorited
 	t.favorite = container.NewCenter(favorite)
 	t.plays = widget.NewRichTextWithText("")
@@ -469,10 +469,10 @@ func (t *TrackRow) Update(tr *subsonic.Child, isPlaying bool, rowNum int) {
 	// like we do to update the now playing value when scrobbles happen)
 	if tr.Starred.IsZero() {
 		t.isFavorite = false
-		t.favorite.Objects[0].(*TappableIcon).Resource = res.ResHeartOutlineInvertPng
+		t.favorite.Objects[0].(*ThemedTappableIcon).IconName = myTheme.IconNameNotFavorite
 	} else {
 		t.isFavorite = true
-		t.favorite.Objects[0].(*TappableIcon).Resource = res.ResHeartFilledInvertPng
+		t.favorite.Objects[0].(*ThemedTappableIcon).IconName = myTheme.IconNameFavorite
 	}
 
 	// Show only columns configured to be visible
@@ -489,12 +489,12 @@ func (t *TrackRow) Update(tr *subsonic.Child, isPlaying bool, rowNum int) {
 
 func (t *TrackRow) toggleFavorited() {
 	if t.isFavorite {
-		t.favorite.Objects[0].(*TappableIcon).Resource = res.ResHeartOutlineInvertPng
+		t.favorite.Objects[0].(*ThemedTappableIcon).IconName = myTheme.IconNameNotFavorite
 		t.favorite.Refresh()
 		t.isFavorite = false
 		t.tracklist.onSetFavorite(t.trackID, false)
 	} else {
-		t.favorite.Objects[0].(*TappableIcon).Resource = res.ResHeartFilledInvertPng
+		t.favorite.Objects[0].(*ThemedTappableIcon).IconName = myTheme.IconNameFavorite
 		t.favorite.Refresh()
 		t.isFavorite = true
 		t.tracklist.onSetFavorite(t.trackID, true)
