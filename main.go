@@ -31,7 +31,7 @@ func main() {
 	}
 
 	fyneApp := app.New()
-	fyneApp.Settings().SetTheme(&theme.MyTheme{})
+	fyneApp.Settings().SetTheme(&theme.MyTheme{Config: &myApp.Config.Theme})
 	w := float32(myApp.Config.Application.WindowWidth)
 	if w <= 1 {
 		w = 1000

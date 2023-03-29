@@ -58,6 +58,10 @@ type ScrobbleConfig struct {
 	ThresholdPercent     int
 }
 
+type ThemeConfig struct {
+	Appearance string
+}
+
 type Config struct {
 	Application    AppConfig
 	Servers        []*ServerConfig
@@ -69,6 +73,7 @@ type Config struct {
 	PlaylistPage   PlaylistPageConfig
 	LocalPlayback  LocalPlaybackConfig
 	Scrobbling     ScrobbleConfig
+	Theme          ThemeConfig
 }
 
 func DefaultConfig() *Config {
@@ -105,6 +110,9 @@ func DefaultConfig() *Config {
 			Enabled:              true,
 			ThresholdTimeSeconds: 240,
 			ThresholdPercent:     50,
+		},
+		Theme: ThemeConfig{
+			Appearance: "Dark",
 		},
 	}
 }
