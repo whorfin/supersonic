@@ -19,18 +19,19 @@ var _ fyne.Widget = (*AlbumsPage)(nil)
 type AlbumsPage struct {
 	widget.BaseWidget
 
-	cfg        *backend.AlbumsPageConfig
-	contr      *controller.Controller
-	pm         *backend.PlaybackManager
-	im         *backend.ImageManager
-	lm         *backend.LibraryManager
-	grid       *widgets.AlbumGrid
-	searchGrid *widgets.AlbumGrid
-	searcher   *widgets.Searcher
-	searchText string
-	titleDisp  *widget.RichText
-	sortOrder  *selectWidget
-	container  *fyne.Container
+	cfg             *backend.AlbumsPageConfig
+	contr           *controller.Controller
+	pm              *backend.PlaybackManager
+	im              *backend.ImageManager
+	lm              *backend.LibraryManager
+	grid            *widgets.AlbumGrid
+	gridState       widgets.AlbumGridState
+	searchGridState widgets.AlbumGridState
+	searcher        *widgets.Searcher
+	searchText      string
+	titleDisp       *widget.RichText
+	sortOrder       *selectWidget
+	container       *fyne.Container
 }
 
 type selectWidget struct {
@@ -78,34 +79,33 @@ func NewAlbumsPage(cfg *backend.AlbumsPageConfig, contr *controller.Controller, 
 	a.grid.OnShowAlbumPage = a.onShowAlbumPage
 	a.searcher = widgets.NewSearcher()
 	a.searcher.OnSearched = a.OnSearched
-	a.createContainer(false)
+	a.createContainer()
 
 	return a
 }
 
-func (a *AlbumsPage) createContainer(searchgrid bool) {
+func (a *AlbumsPage) createContainer() {
 	searchVbox := container.NewVBox(layout.NewSpacer(), a.searcher.Entry, layout.NewSpacer())
 	sortVbox := container.NewVBox(layout.NewSpacer(), a.sortOrder, layout.NewSpacer())
-	g := a.grid
-	if searchgrid {
-		g = a.searchGrid
-	}
 	a.container = container.NewBorder(
 		container.NewHBox(util.NewHSpace(6), a.titleDisp, sortVbox, layout.NewSpacer(), searchVbox, util.NewHSpace(12)),
 		nil,
 		nil,
 		nil,
-		g,
+		a.grid,
 	)
 }
 
 func restoreAlbumsPage(saved *savedAlbumsPage) *AlbumsPage {
 	a := &AlbumsPage{
-		cfg:   saved.cfg,
-		contr: saved.contr,
-		pm:    saved.pm,
-		lm:    saved.lm,
-		im:    saved.im,
+		cfg:             saved.cfg,
+		contr:           saved.contr,
+		pm:              saved.pm,
+		lm:              saved.lm,
+		im:              saved.im,
+		gridState:       saved.gridState,
+		searchGridState: saved.searchGridState,
+		searchText:      saved.searchText,
 	}
 	a.ExtendBaseWidget(a)
 
@@ -116,29 +116,26 @@ func restoreAlbumsPage(saved *savedAlbumsPage) *AlbumsPage {
 	a.sortOrder = NewSelect(backend.AlbumSortOrders, nil)
 	a.sortOrder.Selected = saved.sortOrder
 	a.sortOrder.OnChanged = a.onSortOrderChanged
-	a.grid = widgets.NewAlbumGridFromState(saved.gridState)
 	a.searcher = widgets.NewSearcher()
 	a.searcher.OnSearched = a.OnSearched
 	a.searcher.Entry.Text = saved.searchText
 	if saved.searchText != "" {
-		a.searchGrid = widgets.NewAlbumGridFromState(saved.searchGridState)
+		a.grid = widgets.NewAlbumGridFromState(saved.searchGridState)
+	} else {
+		a.grid = widgets.NewAlbumGridFromState(saved.gridState)
 	}
-	a.createContainer(saved.searchText != "")
+	a.createContainer()
 
 	return a
 }
 
 func (a *AlbumsPage) OnSearched(query string) {
-	a.searchText = query
 	if query == "" {
-		a.container.Objects[0] = a.grid
-		if a.searchGrid != nil {
-			a.searchGrid.Clear()
-		}
-		a.Refresh()
-		return
+		a.grid.ResetFromState(a.gridState)
+	} else {
+		a.doSearch(query)
 	}
-	a.doSearch(query)
+	a.searchText = query
 }
 
 func (a *AlbumsPage) Route() controller.Route {
@@ -162,32 +159,29 @@ func (a *AlbumsPage) Reload() {
 
 func (a *AlbumsPage) Save() SavedPage {
 	sa := &savedAlbumsPage{
-		cfg:        a.cfg,
-		contr:      a.contr,
-		pm:         a.pm,
-		lm:         a.lm,
-		im:         a.im,
-		searchText: a.searchText,
-		sortOrder:  a.sortOrder.Selected,
-		gridState:  a.grid.SaveToState(),
+		cfg:             a.cfg,
+		contr:           a.contr,
+		pm:              a.pm,
+		lm:              a.lm,
+		im:              a.im,
+		searchText:      a.searchText,
+		sortOrder:       a.sortOrder.Selected,
+		gridState:       a.gridState,
+		searchGridState: a.searchGridState,
 	}
-	if a.searchGrid != nil {
-		sa.searchGridState = a.searchGrid.SaveToState()
+	if a.searchText == "" {
+		sa.gridState = a.grid.SaveToState()
+	} else {
+		sa.searchGridState = a.grid.SaveToState()
 	}
 	return sa
 }
 
 func (a *AlbumsPage) doSearch(query string) {
-	if a.searchGrid == nil {
-		a.searchGrid = widgets.NewAlbumGrid(a.lm.SearchIter(query), a.im, false /*showYear*/)
-		a.searchGrid.OnPlayAlbum = a.onPlayAlbum
-		a.searchGrid.OnShowAlbumPage = a.onShowAlbumPage
-		a.searchGrid.OnShowArtistPage = a.onShowArtistPage
-	} else {
-		a.searchGrid.Reset(a.lm.SearchIter(query))
+	if a.searchText == "" {
+		a.gridState = a.grid.SaveToState()
 	}
-	a.container.Objects[0] = a.searchGrid
-	a.Refresh()
+	a.grid.Reset(a.lm.SearchIter(query))
 }
 
 func (a *AlbumsPage) onPlayAlbum(albumID string) {
@@ -204,10 +198,8 @@ func (a *AlbumsPage) onShowAlbumPage(albumID string) {
 
 func (a *AlbumsPage) onSortOrderChanged(order string) {
 	a.cfg.SortOrder = a.sortOrder.Selected
-	a.grid.Reset(a.lm.AlbumsIter(backend.AlbumSortOrder(order)))
 	if a.searchText == "" {
-		a.container.Objects[0] = a.grid
-		a.Refresh()
+		a.grid.Reset(a.lm.AlbumsIter(backend.AlbumSortOrder(order)))
 	}
 }
 
