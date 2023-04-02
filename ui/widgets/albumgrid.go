@@ -25,17 +25,17 @@ type AlbumGrid struct {
 
 	AlbumGridState
 
-	grid *widget.GridWrapList
+	stateMutex   sync.RWMutex
+	grid         *widget.GridWrapList
+	highestShown int
+	fetching     bool
 }
 
 type AlbumGridState struct {
-	albums       []*subsonic.AlbumID3
-	albumsMutex  sync.RWMutex
-	iter         *backend.BatchingIterator
-	highestShown int
-	fetching     bool
-	done         bool
-	showYear     bool
+	albums   []*subsonic.AlbumID3
+	iter     *backend.BatchingIterator
+	done     bool
+	showYear bool
 
 	imageFetcher     ImageFetcher
 	OnPlayAlbum      func(string)
@@ -78,6 +78,8 @@ func NewAlbumGrid(iter backend.AlbumIterator, fetch ImageFetcher, showYear bool)
 }
 
 func (ag *AlbumGrid) SaveToState() AlbumGridState {
+	ag.stateMutex.RLock()
+	defer ag.stateMutex.RUnlock()
 	s := ag.AlbumGridState
 	s.scrollPos = ag.grid.GetScrollOffset()
 	return s
@@ -93,20 +95,31 @@ func NewAlbumGridFromState(state AlbumGridState) *AlbumGrid {
 }
 
 func (ag *AlbumGrid) Clear() {
-	ag.albumsMutex.Lock()
-	defer ag.albumsMutex.Unlock()
+	ag.stateMutex.Lock()
+	defer ag.stateMutex.Unlock()
 	ag.albums = nil
 	ag.done = true
 }
 
+func (ag *AlbumGrid) ResetFromState(state AlbumGridState) {
+	ag.stateMutex.Lock()
+	ag.AlbumGridState = state
+	ag.highestShown = 0
+	ag.fetching = false
+	ag.stateMutex.Unlock()
+	ag.grid.ScrollToOffset(state.scrollPos)
+}
+
 func (ag *AlbumGrid) Reset(iter backend.AlbumIterator) {
-	ag.albumsMutex.Lock()
+	ag.stateMutex.Lock()
 	ag.albums = nil
-	ag.albumsMutex.Unlock()
 	ag.fetching = false
 	ag.done = false
 	ag.highestShown = 0
 	ag.iter = backend.NewBatchingIterator(iter)
+	ag.scrollPos = 0
+	ag.stateMutex.Unlock()
+	ag.grid.ScrollToOffset(ag.scrollPos)
 	ag.fetchMoreAlbums(36)
 }
 
@@ -148,9 +161,9 @@ func (ag *AlbumGrid) doUpdateAlbumCard(albumIdx int, ac *AlbumCard) {
 	if albumIdx > ag.highestShown {
 		ag.highestShown = albumIdx
 	}
-	ag.albumsMutex.RLock()
+	ag.stateMutex.RLock()
 	album := ag.albums[albumIdx]
-	ag.albumsMutex.RUnlock()
+	ag.stateMutex.RUnlock()
 	if ac.PrevAlbumID == album.ID {
 		// nothing to do
 		return
@@ -191,8 +204,8 @@ func (ag *AlbumGrid) doUpdateAlbumCard(albumIdx int, ac *AlbumCard) {
 }
 
 func (a *AlbumGrid) lenAlbums() int {
-	a.albumsMutex.RLock()
-	defer a.albumsMutex.RUnlock()
+	a.stateMutex.RLock()
+	defer a.stateMutex.RUnlock()
 	return len(a.albums)
 }
 
@@ -209,9 +222,9 @@ func (a *AlbumGrid) fetchMoreAlbums(count int) {
 			n := 0
 			for !a.done && n < count {
 				albums := a.iter.NextN(albumFetchBatchSize)
-				a.albumsMutex.Lock()
+				a.stateMutex.Lock()
 				a.albums = append(a.albums, albums...)
-				a.albumsMutex.Unlock()
+				a.stateMutex.Unlock()
 				if len(albums) < albumFetchBatchSize {
 					a.done = true
 				}
