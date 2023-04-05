@@ -10,7 +10,9 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -23,7 +25,8 @@ type SettingsDialog struct {
 	OnAudioExclusiveSettingChanged func()
 	OnDismiss                      func()
 
-	config *backend.Config
+	config     *backend.Config
+	promptText *widget.RichText
 
 	content fyne.CanvasObject
 }
@@ -36,8 +39,9 @@ func NewSettingsDialog(config *backend.Config) *SettingsDialog {
 		s.createGeneralTab(),
 		s.createPlaybackTab(),
 	)
+	s.promptText = widget.NewRichTextWithText("")
 	s.content = container.NewVBox(tabs, widget.NewSeparator(),
-		container.NewHBox(layout.NewSpacer(), widget.NewButton("Close", func() {
+		container.NewHBox(s.promptText, layout.NewSpacer(), widget.NewButton("Close", func() {
 			if s.OnDismiss != nil {
 				s.OnDismiss()
 			}
@@ -47,6 +51,28 @@ func NewSettingsDialog(config *backend.Config) *SettingsDialog {
 }
 
 func (s *SettingsDialog) createGeneralTab() *container.TabItem {
+	closeToTray := widget.NewCheckWithData("Close to system tray",
+		binding.BindBool(&s.config.Application.CloseToSystemTray))
+	if !s.config.Application.EnableSystemTray {
+		closeToTray.Disable()
+	}
+	systemTrayEnable := widget.NewCheck("Enable system tray", func(val bool) {
+		s.config.Application.EnableSystemTray = val
+		// TODO: see https://github.com/fyne-io/fyne/issues/3788
+		// Once Fyne supports removing/hiding an existing system tray menu,
+		// the restart required prompt can be removed and this dialog
+		// can expose a callback for the Controller to show/hide the system tray menu.
+		s.setRestartRequired()
+		if val {
+			closeToTray.Enable()
+		} else {
+			closeToTray.Disable()
+		}
+	})
+	systemTrayEnable.Checked = s.config.Application.EnableSystemTray
+
+	// Scrobble settings
+
 	twoDigitValidator := func(text string, r rune) bool {
 		return unicode.IsDigit(r) && len(text) < 2
 	}
@@ -117,6 +143,10 @@ func (s *SettingsDialog) createGeneralTab() *container.TabItem {
 	scrobbleEnabled.Checked = s.config.Scrobbling.Enabled
 
 	return container.NewTabItem("General", container.NewVBox(
+		systemTrayEnable,
+		closeToTray,
+		s.newSectionSeparator(),
+
 		widget.NewRichText(&widget.TextSegment{Text: "Scrobbling", Style: boldStyle}),
 		scrobbleEnabled,
 		container.NewHBox(
@@ -195,9 +225,24 @@ func (s *SettingsDialog) createPlaybackTab() *container.TabItem {
 			widget.NewLabel("ReplayGain preamp"), container.NewHBox(preampGain, widget.NewLabel("dB")),
 			widget.NewLabel("Prevent clipping"), container.NewHBox(preventClipping, layout.NewSpacer()),
 		),
-		container.New(&layouts.MaxPadLayout{PadLeft: 15, PadRight: 15}, widget.NewSeparator()),
+		s.newSectionSeparator(),
+
 		container.NewHBox(audioExclusive, layout.NewSpacer()),
 	))
+}
+
+func (s *SettingsDialog) setRestartRequired() {
+	ts := s.promptText.Segments[0].(*widget.TextSegment)
+	if ts.Text != "" {
+		return
+	}
+	ts.Text = "Restart required"
+	ts.Style.ColorName = theme.ColorNameError
+	s.promptText.Refresh()
+}
+
+func (s *SettingsDialog) newSectionSeparator() fyne.CanvasObject {
+	return container.New(&layouts.MaxPadLayout{PadLeft: 15, PadRight: 15}, widget.NewSeparator())
 }
 
 func (s *SettingsDialog) onReplayGainSettingsChanged() {
